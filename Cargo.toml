@@ -1,12 +1,14 @@
 [package]
 authors = ["cute0laf <oliverlim818@gmail.com>"]
 edition = "2021"
-name = "genesis-dao-assets-chain-extension"
+name = "pallet-dao-assets-chain-extension"
 version = "0.1.0"
 
 [dependencies]
 # Common deps
-scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
+scale = { package = "parity-scale-codec", version = "3", default-features = false, features = [
+	"derive",
+] }
 scale-info = { version = "2", default-features = false, features = ["derive"] }
 obce = { git = "https://github.com/Supercolony-net/obce", branch = "main", default-features = false }
 
@@ -15,24 +17,16 @@ pallet-dao-assets = { git = "https://github.com/deep-ink-ventures/genesis-dao-no
 
 # Ink deps
 ink_primitives = { version = "3", default-features = false, optional = true }
-ink_metadata = { version = "3", default-features = false, features = ["derive"], optional = true }
+ink_metadata = { version = "3", default-features = false, features = [
+	"derive",
+], optional = true }
 ink_storage = { version = "3", default-features = false, optional = true }
 
 [features]
 default = ["std"]
-substrate = [
-	"obce/substrate",
-	"pallet-dao-assets",
-]
-ink = [
-	"obce/ink",
-	"ink_primitives",
-	"ink_storage",
-]
-std = [
-	"scale-info/std",
-	"scale/std",
-]
+substrate = ["obce/substrate", "pallet-dao-assets"]
+ink = ["obce/ink", "ink_primitives", "ink_storage"]
+std = ["scale-info/std", "scale/std"]
 substrate-std = [
 	"std",
 	"substrate",
