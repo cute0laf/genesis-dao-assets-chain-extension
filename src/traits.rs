@@ -30,7 +30,7 @@ use obce::substrate::{
     SupportCriticalError,
 };
 #[cfg(feature = "substrate")]
-use pallet_assets::Error as AssetError;
+use pallet_dao_assets::Error as DaoAssetError;
 
 /// The origin of the call. The smart contract can execute methods on behalf of the `caller` or itself.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, scale::Encode, scale::Decode)]
@@ -66,31 +66,8 @@ pub trait Environment {
     type Balance;
 }
 
-// TODO: Add comments
-#[obce::definition(id = "pallet-assets-chain-extension@v0.1")]
-pub trait PalletAssets<T: Environment> {
-    fn create(&mut self, id: T::AssetId, admin: T::AccountId, min_balance: T::Balance) -> Result<(), Error<T>>;
-
-    fn mint(&mut self, id: T::AssetId, who: T::AccountId, amount: T::Balance) -> Result<(), Error<T>>;
-
-    fn burn(&mut self, id: T::AssetId, who: T::AccountId, amount: T::Balance) -> Result<(), Error<T>>;
-
-    fn balance_of(&self, id: T::AssetId, owner: T::AccountId) -> T::Balance;
-
-    fn total_supply(&self, id: T::AssetId) -> T::Balance;
-
-    fn allowance(&self, id: T::AssetId, owner: T::AccountId, spender: T::AccountId) -> T::Balance;
-
-    fn approve_transfer(
-        &mut self,
-        origin: Origin,
-        id: T::AssetId,
-        target: T::AccountId,
-        amount: T::Balance,
-    ) -> Result<(), Error<T>>;
-
-    fn cancel_approval(&mut self, origin: Origin, id: T::AssetId, target: T::AccountId) -> Result<(), Error<T>>;
-
+#[obce::definition(id = "pallet-dao-assets-chain-extension@v0.1")]
+pub trait PalletDaoAssets<T: Environment> {
     fn transfer(
         &mut self,
         origin: Origin,
@@ -99,24 +76,32 @@ pub trait PalletAssets<T: Environment> {
         amount: T::Balance,
     ) -> Result<(), Error<T>>;
 
+    fn transfer_keep_alive(
+        &mut self,
+        origin: Origin,
+        id: T::AssetId,
+        target: T::AccountId,
+        amount: T::Balance,
+    ) -> Result<(), Error<T>>;
+
+    fn approve_transfer(
+        &mut self,
+        origin: Origin,
+        id: T::AssetId,
+        delegate: T::AccountId,
+        amount: T::Balance,
+    ) -> Result<(), Error<T>>;
+
+    fn cancel_approval(&mut self, origin: Origin, id: T::AssetId, delegate: T::AccountId) -> Result<(), Error<T>>;
+
     fn transfer_approved(
         &mut self,
         origin: Origin,
         id: T::AssetId,
         owner: T::AccountId,
-        target: T::AccountId,
+        destination: T::AccountId,
         amount: T::Balance,
     ) -> Result<(), Error<T>>;
-
-    // Metadata section
-
-    fn set_metadata(&mut self, id: T::AssetId, name: Vec<u8>, symbol: Vec<u8>, decimals: u8) -> Result<(), Error<T>>;
-
-    fn metadata_name(&self, id: T::AssetId) -> Vec<u8>;
-
-    fn metadata_symbol(&self, id: T::AssetId) -> Vec<u8>;
-
-    fn metadata_decimals(&self, id: T::AssetId) -> u8;
 }
 
 /// The common errors that can be emitted by the `pallet-asset`.
@@ -136,18 +121,12 @@ pub enum Error<T> {
     NoPermission,
     /// The given asset ID is unknown.
     Unknown,
-    /// The origin account is frozen.
-    Frozen,
     /// The asset ID is already taken.
     InUse,
     /// Invalid witness data given.
     BadWitness,
     /// Minimum balance should be non-zero.
     MinBalanceZero,
-    /// Unable to increment the consumer reference counters on the account. Either no provider
-    /// reference exists to allow a non-zero balance of a non-self-sufficient asset, or the
-    /// maximum number of consumers has been reached.
-    NoProvider,
     /// Invalid metadata given.
     BadMetadata,
     /// No approval exists that would allow the transfer.
@@ -156,12 +135,14 @@ pub enum Error<T> {
     WouldDie,
     /// The asset-account already exists.
     AlreadyExists,
-    /// The asset-account doesn't have an associated deposit.
-    NoDeposit,
     /// The operation would result in funds being burned.
     WouldBurn,
+    /// The asset is not live, and likely being destroyed.
+    AssetNotLive,
+    /// The asset status is not the expected status.
+    IncorrectStatus,
     /// Unknown internal asset pallet error.
-    AssetPalletInternal,
+    DaoAssetPalletInternal,
 
     // Substrate errors
     #[cfg(feature = "substrate")]
@@ -174,15 +155,15 @@ pub enum Error<T> {
 }
 
 #[cfg(feature = "substrate")]
-impl<T: pallet_assets::Config> From<CriticalError> for Error<T> {
+impl<T: pallet_dao_assets::Config> From<CriticalError> for Error<T> {
     fn from(dispatch: CriticalError) -> Self {
-        let asset_module = <pallet_assets::Pallet<T> as PalletInfoAccess>::index() as u8;
+        let dao_asset_module = <pallet_dao_assets::Pallet<T> as PalletInfoAccess>::index() as u8;
 
         // If error from the `pallet_assets` module, map it into ink! error
         if let CriticalError::Module(module) = dispatch {
             if module.index == asset_module {
                 let mut input = module.error.as_slice();
-                if let Ok(asset_error) = <AssetError<T> as scale::Decode>::decode(&mut input) {
+                if let Ok(asset_error) = <DaoAssetError<T> as scale::Decode>::decode(&mut input) {
                     return asset_error.into()
                 }
             }
@@ -193,25 +174,24 @@ impl<T: pallet_assets::Config> From<CriticalError> for Error<T> {
 }
 
 #[cfg(feature = "substrate")]
-impl<T> From<AssetError<T>> for Error<T> {
-    fn from(asset: AssetError<T>) -> Self {
+impl<T> From<DaoAssetError<T>> for Error<T> {
+    fn from(asset: DaoAssetError<T>) -> Self {
         match asset {
-            AssetError::<T>::BalanceLow => Error::<T>::BalanceLow,
-            AssetError::<T>::NoAccount => Error::<T>::NoAccount,
-            AssetError::<T>::NoPermission => Error::<T>::NoPermission,
-            AssetError::<T>::Unknown => Error::<T>::Unknown,
-            AssetError::<T>::Frozen => Error::<T>::Frozen,
-            AssetError::<T>::InUse => Error::<T>::InUse,
-            AssetError::<T>::BadWitness => Error::<T>::BadWitness,
-            AssetError::<T>::MinBalanceZero => Error::<T>::MinBalanceZero,
-            AssetError::<T>::NoProvider => Error::<T>::NoProvider,
-            AssetError::<T>::BadMetadata => Error::<T>::BadMetadata,
-            AssetError::<T>::Unapproved => Error::<T>::Unapproved,
-            AssetError::<T>::WouldDie => Error::<T>::WouldDie,
-            AssetError::<T>::AlreadyExists => Error::<T>::AlreadyExists,
-            AssetError::<T>::NoDeposit => Error::<T>::NoDeposit,
-            AssetError::<T>::WouldBurn => Error::<T>::WouldBurn,
-            _ => Error::<T>::AssetPalletInternal,
+            DaoAssetError::<T>::BalanceLow => Error::<T>::BalanceLow,
+            DaoAssetError::<T>::NoAccount => Error::<T>::NoAccount,
+            DaoAssetError::<T>::NoPermission => Error::<T>::NoPermission,
+            DaoAssetError::<T>::Unknown => Error::<T>::Unknown,
+            DaoAssetError::<T>::InUse => Error::<T>::InUse,
+            DaoAssetError::<T>::BadWitness => Error::<T>::BadWitness,
+            DaoAssetError::<T>::MinBalanceZero => Error::<T>::MinBalanceZero,
+            DaoAssetError::<T>::BadMetadata => Error::<T>::BadMetadata,
+            DaoAssetError::<T>::Unapproved => Error::<T>::Unapproved,
+            DaoAssetError::<T>::WouldDie => Error::<T>::WouldDie,
+            DaoAssetError::<T>::AlreadyExists => Error::<T>::AlreadyExists,
+            DaoAssetError::<T>::WouldBurn => Error::<T>::WouldBurn,
+            DaoAssetError::<T>::AssetNotLive => Error::<T>::AssetNotLive,
+            DaoAssetError::<T>::IncorrectStatus => Error::<T>::IncorrectStatus,
+            _ => Error::<T>::DaoAssetPalletInternal,
         }
     }
 }

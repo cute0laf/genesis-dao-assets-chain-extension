@@ -20,8 +20,8 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 use super::traits::{
-    Environment as AssetsEnvironment,
-    PalletAssets,
+    Environment as DaoAssetsEnvironment,
+    PalletDaoAssets,
 };
 use crate::traits::{
     Error,
@@ -46,80 +46,25 @@ use obce::substrate::{
     sp_std::vec::Vec,
     ExtensionContext,
 };
-use pallet_assets::Config as AssetConfig;
+use pallet_dao_assets::Config as DaoAssetConfig;
 
 #[derive(Default)]
-pub struct AssetsExtension;
+pub struct DaoAssetsExtension;
 
-impl<T: SysConfig + AssetConfig + ContractConfig> AssetsEnvironment for T {
+impl<T: SysConfig + DaoAssetConfig + ContractConfig> AssetsEnvironment for T {
     type AccountId = <T as SysConfig>::AccountId;
-    type AssetId = <T as AssetConfig>::AssetId;
-    type Balance = <T as AssetConfig>::Balance;
+    type AssetId = <T as DaoAssetConfig>::AssetId;
+    type Balance = <T as DaoAssetConfig>::Balance;
 }
 
 #[obce::implementation]
-impl<'a, 'b, E, T> PalletAssets<T> for ExtensionContext<'a, 'b, E, T, AssetsExtension>
+impl<'a, 'b, E, T> PalletDaoAssets<T> for ExtensionContext<'a, 'b, E, T, DaoAssetsExtension>
 where
-    T: SysConfig + AssetConfig + ContractConfig,
+    T: SysConfig + DaoAssetConfig + ContractConfig,
     <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     E: Ext<T = T>,
     <E::T as SysConfig>::AccountId: UncheckedFrom<<E::T as SysConfig>::Hash> + AsRef<[u8]>,
 {
-    fn create(&mut self, id: T::AssetId, admin: T::AccountId, min_balance: T::Balance) -> Result<(), Error<T>> {
-        // The contract should have money for the deposit
-        Ok(pallet_assets::Pallet::<T>::create(
-            self.origin(),
-            id,
-            admin.into(),
-            min_balance,
-        )?)
-    }
-
-    fn mint(&mut self, id: T::AssetId, who: T::AccountId, amount: T::Balance) -> Result<(), Error<T>> {
-        // Only origin with `issuer` right can do mint
-        Ok(pallet_assets::Pallet::<T>::mint(self.origin(), id, who.into(), amount)?)
-    }
-
-    fn burn(&mut self, id: T::AssetId, who: T::AccountId, amount: T::Balance) -> Result<(), Error<T>> {
-        // Only origin with `admin` right can do burn
-        Ok(pallet_assets::Pallet::<T>::burn(self.origin(), id, who.into(), amount)?)
-    }
-
-    fn balance_of(&self, id: T::AssetId, owner: T::AccountId) -> T::Balance {
-        <pallet_assets::Pallet<T> as Inspect<T::AccountId>>::balance(id, &owner)
-    }
-
-    fn total_supply(&self, id: T::AssetId) -> T::Balance {
-        <pallet_assets::Pallet<T> as Inspect<T::AccountId>>::total_issuance(id)
-    }
-
-    fn allowance(&self, id: T::AssetId, owner: T::AccountId, spender: T::AccountId) -> T::Balance {
-        <pallet_assets::Pallet<T> as approvals::Inspect<T::AccountId>>::allowance(id, &owner, &spender)
-    }
-
-    fn approve_transfer(
-        &mut self,
-        origin: Origin,
-        id: T::AssetId,
-        target: T::AccountId,
-        amount: T::Balance,
-    ) -> Result<(), Error<T>> {
-        Ok(pallet_assets::Pallet::<T>::approve_transfer(
-            self.select_origin(origin)?,
-            id,
-            target.into(),
-            amount,
-        )?)
-    }
-
-    fn cancel_approval(&mut self, origin: Origin, id: T::AssetId, target: T::AccountId) -> Result<(), Error<T>> {
-        Ok(pallet_assets::Pallet::<T>::cancel_approval(
-            self.select_origin(origin)?,
-            id,
-            target.into(),
-        )?)
-    }
-
     fn transfer(
         &mut self,
         origin: Origin,
@@ -127,11 +72,49 @@ where
         target: T::AccountId,
         amount: T::Balance,
     ) -> Result<(), Error<T>> {
-        Ok(pallet_assets::Pallet::<T>::transfer(
+        Ok(pallet_dao_assets::Pallet::<T>::transfer(
             self.select_origin(origin)?,
             id,
             target.into(),
             amount,
+        )?)
+    }
+
+    fn transfer_keep_alive(
+        &mut self,
+        origin: Origin,
+        id: T::AssetId,
+        target: T::AccountId,
+        amount: T::Balance,
+    ) -> Result<(), Error<T>> {
+        Ok((pallet_dao_assets::Pallet::<T>::transfer_keep_alive(
+            self.select_origin(origin)?,
+            id,
+            target.into(),
+            amount,
+        ))?)
+    }
+
+    fn approve_transfer(
+        &mut self,
+        origin: Origin,
+        id: T::AssetId,
+        delegate: T::AccountId,
+        amount: T::Balance,
+    ) -> Result<(), Error<T>> {
+        Ok(pallet_dao_assets::Pallet::<T>::approve_transfer(
+            self.select_origin(origin)?,
+            id,
+            delegate.into(),
+            amount,
+        )?)
+    }
+
+    fn cancel_approval(&mut self, origin: Origin, id: T::AssetId, delegate: T::AccountId) -> Result<(), Error<T>> {
+        Ok(pallet_dao_assets::Pallet::<T>::cancel_approval(
+            self.select_origin(origin)?,
+            id,
+            delegate.into(),
         )?)
     }
 
@@ -140,43 +123,21 @@ where
         origin: Origin,
         id: T::AssetId,
         owner: T::AccountId,
-        target: T::AccountId,
+        destination: T::AccountId,
         amount: T::Balance,
     ) -> Result<(), Error<T>> {
-        Ok(pallet_assets::Pallet::<T>::transfer_approved(
+        Ok(pallet_dao_assets::Pallet::<T>::transfer_approved(
             self.select_origin(origin)?,
             id,
             owner.into(),
-            target.into(),
+            destination.into(),
             amount,
         )?)
-    }
-
-    fn set_metadata(&mut self, id: T::AssetId, name: Vec<u8>, symbol: Vec<u8>, decimals: u8) -> Result<(), Error<T>> {
-        Ok(pallet_assets::Pallet::<T>::set_metadata(
-            self.origin(),
-            id,
-            name,
-            symbol,
-            decimals,
-        )?)
-    }
-
-    fn metadata_name(&self, id: T::AssetId) -> Vec<u8> {
-        <pallet_assets::Pallet<T> as InspectMetadata<T::AccountId>>::name(&id)
-    }
-
-    fn metadata_symbol(&self, id: T::AssetId) -> Vec<u8> {
-        <pallet_assets::Pallet<T> as InspectMetadata<T::AccountId>>::symbol(&id)
-    }
-
-    fn metadata_decimals(&self, id: T::AssetId) -> u8 {
-        <pallet_assets::Pallet<T> as InspectMetadata<T::AccountId>>::decimals(&id)
     }
 }
 
 /// Trait with additional helpers functions.
-pub trait Internal<T: AssetsEnvironment + SysConfig> {
+pub trait Internal<T: DaoAssetsEnvironment + SysConfig> {
     /// Returns the `AccountId` of the contract as signed origin.
     fn origin(&mut self) -> T::RuntimeOrigin;
 
@@ -184,9 +145,9 @@ pub trait Internal<T: AssetsEnvironment + SysConfig> {
     fn select_origin(&mut self, origin: Origin) -> Result<T::RuntimeOrigin, Error<T>>;
 }
 
-impl<'a, 'b, E, T> Internal<T> for ExtensionContext<'a, 'b, E, T, AssetsExtension>
+impl<'a, 'b, E, T> Internal<T> for ExtensionContext<'a, 'b, E, T, DaoAssetsExtension>
 where
-    T: SysConfig + AssetConfig + ContractConfig,
+    T: SysConfig + DaoAssetConfig + ContractConfig,
     <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     E: Ext<T = T>,
     <E::T as SysConfig>::AccountId: UncheckedFrom<<E::T as SysConfig>::Hash> + AsRef<[u8]>,

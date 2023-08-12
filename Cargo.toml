@@ -1,17 +1,17 @@
 [package]
-authors = ["Supercolony <green.baneling@supercolony.net>"]
+authors = ["cute0laf <oliverlim818@gmail.com>"]
 edition = "2021"
-name = "pallet-assets-chain-extension"
-version = "0.1.1"
+name = "genesis-dao-assets-chain-extension"
+version = "0.1.0"
 
 [dependencies]
 # Common deps
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2", default-features = false, features = ["derive"] }
-obce = { git = "https://github.com/Supercolony-net/obce", branch = "polkadot-v0.9.32", default-features = false }
+obce = { git = "https://github.com/Supercolony-net/obce", branch = "main", default-features = false }
 
 # Substrate deps
-pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.32", default-features = false, optional = true }
+pallet-dao-assets = { git = "https://github.com/deep-ink-ventures/genesis-dao-node", branch = "main", default-features = false, optional = true }
 
 # Ink deps
 ink_primitives = { version = "3", default-features = false, optional = true }
@@ -22,7 +22,7 @@ ink_storage = { version = "3", default-features = false, optional = true }
 default = ["std"]
 substrate = [
 	"obce/substrate",
-	"pallet-assets",
+	"pallet-dao-assets",
 ]
 ink = [
 	"obce/ink",
@@ -37,7 +37,7 @@ substrate-std = [
 	"std",
 	"substrate",
 	"obce/substrate-std",
-	"pallet-assets/std",
+	"pallet-dao-assets/std",
 ]
 ink-std = [
 	"std",
@@ -49,5 +49,5 @@ ink-std = [
 ]
 runtime-benchmarks = [
 	"obce/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
+	"pallet-dao-assets/runtime-benchmarks",
 ]

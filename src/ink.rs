@@ -20,8 +20,8 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 use crate::traits::{
-    Environment as AssetsEnvironment,
-    PalletAssets,
+    Environment as DaoAssetsEnvironment,
+    PalletDaoAssets,
 };
 use obce::ink::ink_env::{
     DefaultEnvironment,
@@ -32,18 +32,18 @@ use obce::ink::ink_env::{
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
 #[derive(ink_storage::traits::SpreadLayout, ink_storage::traits::PackedLayout, ink_storage::traits::SpreadAllocate)]
 #[cfg_attr(feature = "std", derive(ink_storage::traits::StorageLayout))]
-pub struct AssetsExtension;
+pub struct DaoAssetsExtension;
 
-impl<T: Environment> AssetsEnvironment for T {
+impl<T: Environment> DaoAssetsEnvironment for T {
     type AccountId = T::AccountId;
     type AssetId = u32;
     type Balance = T::Balance;
 }
 
-impl AssetsExtension {
+impl DaoAssetsExtension {
     pub fn new() -> Self {
         Self {}
     }
 }
 
-impl PalletAssets<DefaultEnvironment> for AssetsExtension {}
+impl PalletDaoAssets<DefaultEnvironment> for DaoAssetsExtension {}
