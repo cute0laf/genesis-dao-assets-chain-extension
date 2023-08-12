@@ -10,7 +10,7 @@ scale = { package = "parity-scale-codec", version = "3", default-features = fals
 	"derive",
 ] }
 scale-info = { version = "2", default-features = false, features = ["derive"] }
-obce = { git = "https://github.com/Supercolony-net/obce", branch = "main", default-features = false }
+obce = { git = "https://github.com/cute0laf/supercolony-obce", branch = "polkadot-v1.0.0", default-features = false }
 
 # Substrate deps
 pallet-dao-assets = { git = "https://github.com/deep-ink-ventures/genesis-dao-node", branch = "main", default-features = false, optional = true }
