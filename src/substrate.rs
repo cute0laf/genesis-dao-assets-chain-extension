@@ -174,9 +174,11 @@ where
     }
 }
 
-impl<T> ChainExtension<T> for DaoAssetsExtension
+impl<'a, 'b, E, T> ChainExtension<T> for ExtensionContext<'a, 'b, E, T, DaoAssetsExtension>
 where
-    T: ContractConfig,
+    T: SysConfig + DaoAssetConfig + ContractConfig,
+    <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
+    E: Ext<T = T>,
 {
     fn enabled() -> bool {
         true
