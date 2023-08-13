@@ -37,7 +37,10 @@ use obce::substrate::{
         RawOrigin,
     },
     pallet_contracts::{
-        chain_extension::Ext,
+        chain_extension::{
+            ChainExtension,
+            Ext,
+        },
         Config as ContractConfig,
         Origin as ContractOrigin,
     },
@@ -168,5 +171,14 @@ where
             }
             Origin::Address => Ok(RawOrigin::Signed(self.env.ext().address().clone()).into()),
         }
+    }
+}
+
+impl<T> ChainExtension<T> for DaoAssetsExtension
+where
+    T: ContractConfig,
+{
+    fn enabled() -> bool {
+        true
     }
 }
