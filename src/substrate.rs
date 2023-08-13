@@ -31,7 +31,6 @@ use obce::substrate::{
     frame_support::traits::fungibles::{
         approvals,
         Inspect,
-        InspectMetadata,
     },
     frame_system::{
         Config as SysConfig,
@@ -40,8 +39,8 @@ use obce::substrate::{
     pallet_contracts::{
         chain_extension::Ext,
         Config as ContractConfig,
+        Origin as ContractOrigin,
     },
-    sp_core::crypto::UncheckedFrom,
     sp_runtime::traits::StaticLookup,
     sp_std::vec::Vec,
     ExtensionContext,
@@ -51,7 +50,7 @@ use pallet_dao_assets::Config as DaoAssetConfig;
 #[derive(Default)]
 pub struct DaoAssetsExtension;
 
-impl<T: SysConfig + DaoAssetConfig + ContractConfig> AssetsEnvironment for T {
+impl<T: SysConfig + DaoAssetConfig + ContractConfig> DaoAssetsEnvironment for T {
     type AccountId = <T as SysConfig>::AccountId;
     type AssetId = <T as DaoAssetConfig>::AssetId;
     type Balance = <T as DaoAssetConfig>::Balance;
@@ -63,7 +62,6 @@ where
     T: SysConfig + DaoAssetConfig + ContractConfig,
     <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     E: Ext<T = T>,
-    <E::T as SysConfig>::AccountId: UncheckedFrom<<E::T as SysConfig>::Hash> + AsRef<[u8]>,
 {
     fn transfer(
         &mut self,
@@ -74,7 +72,7 @@ where
     ) -> Result<(), Error<T>> {
         Ok(pallet_dao_assets::Pallet::<T>::transfer(
             self.select_origin(origin)?,
-            id,
+            id.into(),
             target.into(),
             amount,
         )?)
@@ -89,7 +87,7 @@ where
     ) -> Result<(), Error<T>> {
         Ok((pallet_dao_assets::Pallet::<T>::transfer_keep_alive(
             self.select_origin(origin)?,
-            id,
+            id.into(),
             target.into(),
             amount,
         ))?)
@@ -104,7 +102,7 @@ where
     ) -> Result<(), Error<T>> {
         Ok(pallet_dao_assets::Pallet::<T>::approve_transfer(
             self.select_origin(origin)?,
-            id,
+            id.into(),
             delegate.into(),
             amount,
         )?)
@@ -113,7 +111,7 @@ where
     fn cancel_approval(&mut self, origin: Origin, id: T::AssetId, delegate: T::AccountId) -> Result<(), Error<T>> {
         Ok(pallet_dao_assets::Pallet::<T>::cancel_approval(
             self.select_origin(origin)?,
-            id,
+            id.into(),
             delegate.into(),
         )?)
     }
@@ -128,7 +126,7 @@ where
     ) -> Result<(), Error<T>> {
         Ok(pallet_dao_assets::Pallet::<T>::transfer_approved(
             self.select_origin(origin)?,
-            id,
+            id.into(),
             owner.into(),
             destination.into(),
             amount,
@@ -150,23 +148,25 @@ where
     T: SysConfig + DaoAssetConfig + ContractConfig,
     <<T as SysConfig>::Lookup as StaticLookup>::Source: From<<T as SysConfig>::AccountId>,
     E: Ext<T = T>,
-    <E::T as SysConfig>::AccountId: UncheckedFrom<<E::T as SysConfig>::Hash> + AsRef<[u8]>,
 {
     fn origin(&mut self) -> T::RuntimeOrigin {
         RawOrigin::Signed(self.env.ext().address().clone()).into()
     }
 
     fn select_origin(&mut self, origin: Origin) -> Result<T::RuntimeOrigin, Error<T>> {
-        let origin = RawOrigin::Signed(match origin {
+        match origin {
             Origin::Caller => {
                 // TODO: Add check that the contract is admin. Right now `asset-pallet` doesn't have getter for admin.
                 // TODO: Return `Error::<T>::ContractIsNotAdmin`
                 // let a = pallet_assets::Pallet::<T>::asset();
-                self.env.ext().caller().clone()
-            }
-            Origin::Address => self.env.ext().address().clone(),
-        });
 
-        Ok(origin.into())
+                let origin = match self.env.ext().caller().clone() {
+                    ContractOrigin::Root => RawOrigin::Root,
+                    ContractOrigin::Signed(account) => RawOrigin::Signed(account),
+                };
+                Ok(origin.into())
+            }
+            Origin::Address => Ok(RawOrigin::Signed(self.env.ext().address().clone()).into()),
+        }
     }
 }

@@ -161,7 +161,7 @@ impl<T: pallet_dao_assets::Config> From<CriticalError> for Error<T> {
 
         // If error from the `pallet_assets` module, map it into ink! error
         if let CriticalError::Module(module) = dispatch {
-            if module.index == asset_module {
+            if module.index == dao_asset_module {
                 let mut input = module.error.as_slice();
                 if let Ok(asset_error) = <DaoAssetError<T> as scale::Decode>::decode(&mut input) {
                     return asset_error.into()
